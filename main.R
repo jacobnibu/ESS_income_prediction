@@ -93,7 +93,46 @@ train_fac <- subset(train, select = -income_bi)
 test_fac <- subset(test, select = -income_bi)
 
 
+# ========================================================
+# Logistic Regression
+# ========================================================
+require(ROCR)
+glm_model <- glm(income_bi ~ ., data=train_bi, family=binomial)
+table(train_bi$income_bi, glm_model$fitted.values>0.5)
+prediction <- predict(glm_model, newdata=test_bi, type="response")
+ROCRpred <- prediction(prediction, test_bi$income_bi)
+as.numeric(performance(ROCRpred, "auc")@y.values)  # 0.7015
 
+# using cross-validation
+install.packages("caret", dependencies = c("Depends", "Suggests"))
+# require(caret)
+# set.seed(371)
+# ctrl <- trainControl(method = "repeatedcv",
+#                        +                      repeats = 3,
+#                        +                      classProbs = TRUE,
+#                        +                      summaryFunction = twoClassSummary)
+# plsFit <- train(Class ~ .,
+#                   +                 data = training,
+#                   +                 method = "pls",
+#                   +                 tuneLength = 15,
+#                   +                 trControl = ctrl,
+#                   +                 metric = "ROC",
+#                   +                 preProc = c("center", "scale"))
+
+
+# ========================================================
+# Decision Tree
+# ========================================================
+
+
+
+# ========================================================
+# Random Forest
+# ========================================================
+require(randomForest)
+forest <- randomForest(income ~ ., data = train_fac, nodesize=25, ntree=200)
+prediction <- predict(forest, newdata = test_fac)
+table(test_fac$income, prediction) 
 
 
 
