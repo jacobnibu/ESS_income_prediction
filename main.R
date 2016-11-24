@@ -3,12 +3,12 @@
 ## To prepare European Social Survey data for ML algorithms
 ## To run multiple algorithms on the data and make evaluations
 
-setwd("Z:/R")
+# setwd('C:/Users/nibu/Google Drive/data science/Sriram/project/ESS_income_prediction')
 
 
 # load SPSS format data file downloaded from ESS website
 # --------------------------------------------------------
-library("haven")
+require(haven)
 data_raw <- read_spss("ESS6MDWe02.2_F1.sav")  # original raw data
 
 
@@ -43,6 +43,7 @@ names(data)[names(data) == 'hinctnta'] <- 'income'
 # examine the variables for missing values and normalization
 # --------------------------------------------------------
 summary(data)            # all columns have NA values; age needs normalization
+data_withNA <- data
 data <- data[complete.cases(data),]  # 1613 obs.
 
 
@@ -69,28 +70,42 @@ summary(data$income)
 table(data$income)
 data$income_bi[data$income < 7] <- 0
 data$income_bi[data$income >= 7] <- 1
-table(data$income_bi)    # 605 obs. with 0, 695 obs. with 1; balanced representation of levels
+data$income <- NULL   # removing the multilevel factor income variable
+names(data)[names(data) == 'income_bi'] <- 'income'
+table(data$income)    # 605 obs. with 0, 695 obs. with 1; balanced representation of levels
 
 
 # check the datatype of variables
 # --------------------------------------------------------
-summary(data)
+sapply(data, class)
 data[] <- lapply(data, factor)  # make all variables as factors
+
+
+# check the class distribution
+# --------------------------------------------------------
+# split data inputs attributes as x and the output attribute (or class) as y
+x <- data[,1:22]
+y <- data[,23]
+
+# check the class distribution
+plot(y)  # the two levels are evenly distributed
+
+# check interaction between attributes using a scatterplot matrix
+# --------------------------------------------------------
+# featurePlot(x=x, y=y, plot="ellipse")
+
+# check and remove highly correlated features
+# --------------------------------------------------------
+findCorrelation(data, cutoff = 0.9, verbose = FALSE, names = FALSE)
 
 
 # split the dataset into training and test sets
 # --------------------------------------------------------
 require(caTools)
 set.seed(371)
-split <- sample.split(data$income_bi, SplitRatio = 0.75)
+split <- sample.split(data$income, SplitRatio = 0.75)
 train <- subset(data, split == TRUE)
 test <- subset(data, split == FALSE)
-
-train_bi <- subset(train, select = -income)
-test_bi <- subset(test, select = -income)
-
-train_fac <- subset(train, select = -income_bi)
-test_fac <- subset(test, select = -income_bi)
 
 
 # ========================================================
@@ -134,6 +149,61 @@ require(randomForest)
 forest <- randomForest(income ~ ., data = train_fac, nodesize=25, ntree=200)
 prediction <- predict(forest, newdata = test_fac)
 table(test_fac$income, prediction) 
+
+
+# ========================================================
+# multiple ML algorithms using caret package
+# ========================================================
+
+install.packages("caret", dependencies = c("Depends", "Suggests"))
+require(caret)
+
+# Run algorithms using 10-fold cross validation
+control <- trainControl(method="cv", number=10)
+metric <- "Accuracy"
+
+# linear discriminant analysis
+set.seed(371)
+fit.lda <- train(income~., data=train, method="lda", metric=metric, trControl=control)
+
+# CART
+set.seed(371)
+fit.cart <- train(income~., data=train, method="rpart", metric=metric, trControl=control)
+
+# kNN
+set.seed(371)
+fit.knn <- train(income~., data=train, method="knn", metric=metric, trControl=control)
+
+# SVM
+set.seed(371)
+fit.svm <- train(income~., data=train, method="svmRadial", metric=metric, trControl=control)
+
+# Random Forest
+set.seed(371)
+fit.rf <- train(income~., data=train, method="rf", metric=metric, trControl=control)
+
+# summarize accuracy of models
+results <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf))
+summary(results)
+dotplot(results)
+
+
+# estimate performance of each model on the validation dataset
+predictions <- predict(fit.lda, test)
+confusionMatrix(predictions, test$income)
+
+predictions <- predict(fit.cart, test)
+confusionMatrix(predictions, test$income)
+
+predictions <- predict(fit.rf, test)
+confusionMatrix(predictions, test$income)
+
+predictions <- predict(fit.knn, test)
+confusionMatrix(predictions, test$income)
+
+predictions <- predict(fit.svm, test)
+confusionMatrix(predictions, test$income)
+
 
 
 
