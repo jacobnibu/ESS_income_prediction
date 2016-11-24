@@ -103,6 +103,7 @@ prediction <- predict(glm_model, newdata=test_bi, type="response")
 ROCRpred <- prediction(prediction, test_bi$income_bi)
 as.numeric(performance(ROCRpred, "auc")@y.values)  # 0.7015
 
+
 # using cross-validation
 install.packages("caret", dependencies = c("Depends", "Suggests"))
 # require(caret)
