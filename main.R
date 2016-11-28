@@ -108,48 +108,6 @@ train <- subset(data, split == TRUE)
 test <- subset(data, split == FALSE)
 
 
-# ========================================================
-# Logistic Regression
-# ========================================================
-require(ROCR)
-glm_model <- glm(income_bi ~ ., data=train_bi, family=binomial)
-table(train_bi$income_bi, glm_model$fitted.values>0.5)
-prediction <- predict(glm_model, newdata=test_bi, type="response")
-ROCRpred <- prediction(prediction, test_bi$income_bi)
-as.numeric(performance(ROCRpred, "auc")@y.values)  # 0.7015
-
-
-# using cross-validation
-install.packages("caret", dependencies = c("Depends", "Suggests"))
-# require(caret)
-# set.seed(371)
-# ctrl <- trainControl(method = "repeatedcv",
-#                        +                      repeats = 3,
-#                        +                      classProbs = TRUE,
-#                        +                      summaryFunction = twoClassSummary)
-# plsFit <- train(Class ~ .,
-#                   +                 data = training,
-#                   +                 method = "pls",
-#                   +                 tuneLength = 15,
-#                   +                 trControl = ctrl,
-#                   +                 metric = "ROC",
-#                   +                 preProc = c("center", "scale"))
-
-
-# ========================================================
-# Decision Tree
-# ========================================================
-
-
-
-# ========================================================
-# Random Forest
-# ========================================================
-require(randomForest)
-forest <- randomForest(income ~ ., data = train_fac, nodesize=25, ntree=200)
-prediction <- predict(forest, newdata = test_fac)
-table(test_fac$income, prediction) 
-
 
 # ========================================================
 # multiple ML algorithms using caret package
@@ -162,13 +120,17 @@ require(caret)
 control <- trainControl(method="cv", number=10)
 metric <- "Accuracy"
 
-# linear discriminant analysis
+# logistic regression
 set.seed(371)
-fit.lda <- train(income~., data=train, method="lda", metric=metric, trControl=control)
+fit.glm <- train(income~., data=train, method="glm", metric=metric, trControl=control)
 
 # CART
 set.seed(371)
 fit.cart <- train(income~., data=train, method="rpart", metric=metric, trControl=control)
+
+# Random Forest
+set.seed(371)
+fit.rf <- train(income~., data=train, method="rf", metric=metric, trControl=control)
 
 # kNN
 set.seed(371)
@@ -178,32 +140,74 @@ fit.knn <- train(income~., data=train, method="knn", metric=metric, trControl=co
 set.seed(371)
 fit.svm <- train(income~., data=train, method="svmRadial", metric=metric, trControl=control)
 
-# Random Forest
-set.seed(371)
-fit.rf <- train(income~., data=train, method="rf", metric=metric, trControl=control)
+
 
 # summarize accuracy of models
-results <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf))
+results <- resamples(list(glm=fit.glm, cart=fit.cart, rf=fit.rf, knn=fit.knn, svm=fit.svm))
 summary(results)
 dotplot(results)
 
 
 # estimate performance of each model on the validation dataset
-predictions <- predict(fit.lda, test)
+require(ROCR)
+
+predictions <- predict(fit.glm, test)
 confusionMatrix(predictions, test$income)
+pred     <- as.numeric(predictions)
+ROCRpred <- prediction(pred, test$income)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr") 
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+as.numeric(performance(ROCRpred, "auc")@y.values)
 
 predictions <- predict(fit.cart, test)
 confusionMatrix(predictions, test$income)
+pred     <- as.numeric(predictions)
+ROCRpred <- prediction(pred, test$income)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr") 
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+as.numeric(performance(ROCRpred, "auc")@y.values)
+
 
 predictions <- predict(fit.rf, test)
 confusionMatrix(predictions, test$income)
+pred     <- as.numeric(predictions)
+ROCRpred <- prediction(pred, test$income)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr") 
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+as.numeric(performance(ROCRpred, "auc")@y.values)
+
 
 predictions <- predict(fit.knn, test)
 confusionMatrix(predictions, test$income)
+pred     <- as.numeric(predictions)
+ROCRpred <- prediction(pred, test$income)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr") 
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+as.numeric(performance(ROCRpred, "auc")@y.values)
+
 
 predictions <- predict(fit.svm, test)
 confusionMatrix(predictions, test$income)
+pred     <- as.numeric(predictions)
+ROCRpred <- prediction(pred, test$income)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr") 
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+as.numeric(performance(ROCRpred, "auc")@y.values)
 
 
+# plot accuracy on training and test sets for all 5 algorithms
+require(ggplot2)
+axis_values <- c(1,2,3,4,5)
+algorithms <- c("glm","cart","rf","knn","svm")
+acc_train <- c(0.6513, 0.6202, 0.6633, 0.6154, 0.6615)
+acc_test <- c(0.6316, 0.6388, 0.6718, 0.6773, 0.7801)
 
+plot(axis_values, acc_train, type="l")
+line(axis_values, acc_test, col="blue", lty=2)
+
+plotdata <- data.frame(algorithms=algorithms,acc_train=acc_train, acc_test=acc_test)
+
+ggplot(plotdata, aes(x=algorithms))+
+  geom_line(aes(y=acc_train, color="acc_train", group=1), size=2)+
+  geom_line(aes(y=acc_test, color="acc_test", group=1), size=2)
 
