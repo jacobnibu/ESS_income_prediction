@@ -197,17 +197,13 @@ as.numeric(performance(ROCRpred, "auc")@y.values)
 
 # plot accuracy on training and test sets for all 5 algorithms
 require(ggplot2)
-axis_values <- c(1,2,3,4,5)
 algorithms <- c("glm","cart","rf","knn","svm")
 acc_train <- c(0.6513, 0.6202, 0.6633, 0.6154, 0.6615)
 acc_test <- c(0.6316, 0.6388, 0.6718, 0.6773, 0.7801)
 
-plot(axis_values, acc_train, type="l")
-line(axis_values, acc_test, col="blue", lty=2)
-
-plotdata <- data.frame(algorithms=algorithms,acc_train=acc_train, acc_test=acc_test)
+plotdata <- data.frame(algorithms=algorithms,accuracy=acc_train, acc_test=acc_test)
 
 ggplot(plotdata, aes(x=algorithms))+
-  geom_line(aes(y=acc_train, color="acc_train", group=1), size=2)+
-  geom_line(aes(y=acc_test, color="acc_test", group=1), size=2)
+  geom_line(aes(y=accuracy, color="training accuracy", group=1), size=2)+
+  geom_line(aes(y=acc_test, color="test accuracy", group=1), size=2)
 
